@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One-time Steam Deck setup: clone this repo and install a systemd user
-# service that syncs Game/addons/XIUI once per login (see xiui-sync.sh).
+# service that syncs Game/addons/xiui once per login (see xiui-sync.sh).
 #   curl -fsSL https://raw.githubusercontent.com/kunomaclis/XIUI/main/scripts/deck/install.sh | bash
 # Undo with uninstall.sh. Overrides: XIUI_REPO, XIUI_BRANCH, XIUI_SRC, XIUI_GAMEDIR.
 

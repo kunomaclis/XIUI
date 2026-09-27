@@ -1,0 +1,9 @@
+[Unit]
+Description=Sample HorizonXI client memory every 60 s
+
+[Service]
+ExecStart=/usr/bin/bash %h/.local/bin/horizon-memwatch.sh
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Keeps a Steam Deck's HorizonXI addons/XIUI in sync with this repo.
-# Fast-forwards the local clone, updates submodules, and (re)links
-# Game/addons/XIUI -> <clone>/XIUI. Skips while the game is running.
+# Keeps a Steam Deck's HorizonXI addons/xiui in sync with this repo.
+# Fast-forwards the local clone, updates submodules, and copies <clone>/XIUI
+# into Game/addons/xiui. Skips while the game is running.
 # Run once per login by the xiui-sync systemd user service; safe to run by hand.
 
 SRC="${XIUI_SRC:-$HOME/src/XIUI}"
@@ -37,19 +37,28 @@ after=$(git rev-parse --short HEAD)
 [ "$before" != "$after" ] && log "updated $before -> $after"
 
 ADDONS="$GAMEDIR/addons"
-LINK="$ADDONS/XIUI"
-TARGET="$SRC/XIUI"
+DEST="$ADDONS/xiui"
+MARK=".xiui-sync"
 [ -d "$ADDONS" ] || { log "addons dir missing: $ADDONS"; exit 1; }
 
-# Wine paths are case-insensitive, so move aside any other xiui folder
-# (e.g. a launcher-installed copy) that would shadow the link.
+# Wine paths are case-insensitive, so any xiui/XIUI entry is the one the game loads.
+# Keep only our copy (marked with $MARK); back up anything else once, e.g. the
+# launcher-installed folder. Old symlinks from earlier versions are just removed.
 while IFS= read -r -d '' entry; do
-    if [ "$entry" = "$LINK" ] && [ -L "$entry" ]; then continue; fi
+    if [ -L "$entry" ]; then rm "$entry" && log "removed old link $entry"; continue; fi
+    if [ "$entry" = "$DEST" ] && [ -e "$entry/$MARK" ]; then continue; fi
     mkdir -p "$GAMEDIR/addons-backup"
     dest="$GAMEDIR/addons-backup/$(basename "$entry").$(date +%Y%m%d-%H%M%S)"
     mv "$entry" "$dest" && log "moved existing $(basename "$entry") to $dest"
 done < <(find "$ADDONS" -maxdepth 1 -iname xiui -print0)
 
-if [ "$(readlink "$LINK")" != "$TARGET" ]; then
-    ln -sfn "$TARGET" "$LINK" && log "linked $LINK -> $TARGET"
-fi
+# Copy, not link: HorizonXI client patches can ship addons/xiui and would
+# otherwise write into the clone. A patched-over copy is restored next login.
+mkdir -p "$DEST"
+out=$(rsync -a --delete --itemize-changes --exclude .git --exclude "$MARK" "$SRC/XIUI/" "$DEST/") \
+    || { log "rsync failed"; exit 1; }
+# Lines starting with '.' are attribute-only (e.g. the dir mtime bumped by touch).
+changed=$(printf '%s\n' "$out" | grep -vc -e '^\.' -e '^$')
+touch "$DEST/$MARK"
+[ "$changed" -gt 0 ] && log "copied $SRC/XIUI -> $DEST ($changed changes)"
+exit 0
